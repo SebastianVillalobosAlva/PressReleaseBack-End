@@ -1,0 +1,23 @@
+URL:
+	https://www.jornada.com.mx/{AAA}/{MM}/{DD}/{Seccion}
+
+----------Secciones------------------
+[opinion,politica,econimia,mundo,estados,capital,ciencias,cultura,espectaculos,deportes]
+
+
+Editorial y correo????
+
+link a notas: a.cabeza -> href
+
+
+-------------Notas-------------------
+Titulo:
+	.cabeza <em>
+
+	
+nota:
+	#article-text	#Contenedor de nota
+	.credito-autor	#Autor de la nota
+	.inicial	#Letra inicial (no todas las notas lo usan)
+	<p>		#texto de parrafos (quitar html interior)
+
