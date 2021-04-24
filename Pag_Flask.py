@@ -5,10 +5,10 @@ from wtforms import IntegerField, SubmitField, TextField
 import joblib
 import json
 from flask_cors import CORS, cross_origin
+from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import create_engine
 ##########################
-from Tools import Jornada
-from Tools import Reforma
-import pickle
+from Tools import Func
 import datetime
 import pandas as pd
 import sklearn
@@ -20,117 +20,76 @@ import sklearn.neighbors._typedefs
 import sklearn.tree
 import sklearn.tree._utils
 import re
-    
-def Obtener_Prediccion(nota):
-    '''
-    Returns the classification and probability of a press release as new columns in a pd.DataFrame.
-
-    Parameter
-    --------------------------------
-    nota: pd.DataFrame 
-            Press Release
-
-    Returns
-    --------------------------------
-    nota: pd:DataFrame 
-            Press Release with their classification and probability
-
-    '''
-    # Open model
-    modelo = None
-    with open('Models/Modelo_3.pkl','rb') as f:
-        modelo = pickle.load(f)
-
-    # Obtain classification of press release
-    if modelo is not None:
-        prediccion=modelo.predict(nota.Texto) # Classify as '1' or '0'
-        modelo.probability = True
-        proba=modelo.predict_proba(nota.Texto) # Obtain probability of their classification
-
-        nota['Prediccion'] = prediccion
-        nota['PrediccionEtiqueta'] = 'No'
-        nota.loc[nota.Prediccion == 1,'PrediccionEtiqueta']='Si'
-
-        nota['Probabilidad_Si'],nota['Probabilidad_No'] = proba[:,1],proba[:,0] # Append the probabilities as new columns
-
-        # Return press release based on probability
-        if proba[0,1]>=.60:
-            return nota
-        else:
-            return None
-    
+        
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'mysecretkey'
+
+# Google Cloud SQL (change this accordingly) 
+# PASSWORD ="Lusw7sbiMylOkAbc"
+# PUBLIC_IP_ADDRESS = "34.70.119.102"
+# DBNAME ="Notas"
+# PROJECT_ID = "nth-rarity-307801"
+# INSTANCE_NAME ="notas-guardadas123"
+
+# configuration 
+app.config["SECRET_KEY"] = "yoursecretkey"
+# app.config["SQLALCHEMY_DATABASE_URI"] = f"mysql+mysqldb://root:{PASSWORD}@{PUBLIC_IP_ADDRESS}/{DBNAME}?unix_socket=/cloudsql/{PROJECT_ID}:{INSTANCE_NAME}"
+app.config["SQLALCHEMY_DATABASE_URI"] = 'mysql+mysqldb://root:{PASSWORD}@{PUBLIC_IP_ADDRESS}/notasservicio' 
+#engine = SQLAlchemy.create_engine('mysql+mysqldb://root:{1q2w3e4r5t}@localhost/notasservicio')
+
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"]= True
+
 CORS(app,support_credentials=True)
+db = SQLAlchemy(app)
+
+class Nota(db.Model):
+    __tablename__ = 'NotasGuardadas'
+    id   = db.Column(db.Integer, primary_key = True)
+    Titulo = db.Column(db.String(200))
+    Autor = db.Column(db.String(200))
+    Texto = db.Column(db.String(10000))
+    Link = db.Column(db.String(200))
+    P_Si = db.Column(db.Float)
+    P_No = db.Column(db.Float)  
+
+db.create_all()
 
 @app.route("/notas",methods=['POST'])
 @cross_origin(support_credentials=True)
 def Notes(): 
     # Read json
+    first_engine = create_engine('mysql+mysqldb://root:{PASSWORD}@{PUBLIC_IP_ADDRESS}/notasservicio').connect()
     data = request.get_json()
     print(data) 
-    # Compute the dates for which to download and classify press releases. Increment of one day per date
-    fechas = pd.date_range(start=data['fecha_i'],end=data['fecha_f'])
-    print(fechas)
-    # Create pd.DataFrame where to store all press releases that have >= 60% probability of being useful
-    notas = pd.DataFrame(data = None, columns= ['Titulo','Autor','Referencia','Texto','link','Prediccion','PrediccionEtiqueta','Probabilidad_Si','Probabilidad_No'])
-    notas_lista = []
-
-    for idx,date in enumerate(fechas):
-        i = 0
-        # Obtain year, month and day for which to download press releases
-        year = int(fechas[idx].year)
-        month = int(fechas[idx].month)
-        day = int(fechas[idx].day)
-
-        if(data['Jornada'] & data['Reforma']):
-            print('Jornada y Reforma')
-        elif(data['Jornada'] & ~data['Reforma']):
-            
-            print('Jornada')
-            links = Jornada.ObtenLinks(day,month,year) # Obtain all the links from La Jornada
-            print('Bajando links')
-            
-            for link in links:
-                # Download press release individually and classify them
-                print("Descargando nota:",i)
-                notaJ = Jornada.DescargaNotas(link,True) 
-                notaJ = Obtener_Prediccion(notaJ)
-                
-                if notaJ is not None:
-                    notas_lista.append(notaJ)
-                i += 1
-               
-                if i > 15:
-                    break
-                
-        elif(~data['Jornada'] & data['Reforma']):
-            
-            print('Reforma')
-            folios = Reforma.getFoliosDia(day,month,year) # Obtain all the links from Reforma
-            print('Bajando links')
-
-            for folio in folios:
-                # Download press release individually and classify them
-                print("Descargando nota:",i)
-                notaR = Reforma.NotasReforma(folio,True)
-                notaR = Obtener_Prediccion(notaR)
-
-                if notaR is not None:
-                    notas_lista.append(notaR)
-                i += 1
-               
-                if i > 15:
-                    break
-              
-    if not notas_lista:
-        return "No hay notas que cumplan con la mínima probabilidad"
-
-    notas = pd.concat(notas_lista)
-    notas.drop(notas[notas.Texto.isnull()].index,inplace=True)
-    notas_json = notas[['Titulo','Autor','link','Probabilidad_Si','Probabilidad_No']].to_json(orient='split')
-
+    
+    notas_json = Func.Bajar_Notas(data,Nota,db,first_engine)
+    
+    first_engine.close()
+    first_engine.dispose()
+   
     return notas_json
+
+@app.route("/read-notas",methods=['POST'])
+@cross_origin(support_credentials=True)
+def Read_database():
+    engine = create_engine('mysql+mysqldb://root:{PASSWORD}@{PUBLIC_IP_ADDRESS}/notasservicio').connect()
+    all_notes_df = pd.read_sql_table('notasguardadas', engine)
+    engine.close()
+    engine.dispose()
+    
+    return all_notes_df.to_json(orient='split')
+
+
+@app.route("/delete-notas",methods=['POST'])
+@cross_origin(support_credentials=True)
+def Delete_notas():
+    try:
+        num_rows_deleted = db.session.query(Nota).delete()
+        db.session.commit()
+        notas_borradas = f"Se borraron {num_rows_deleted} notas"
+        return jsonify(notas_borradas)
+    except:
+        db.session.rollback()
+        return jsonify("No se logro borrar ninguna nota")
 
 if __name__ == '__main__':
     app.run()
