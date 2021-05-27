@@ -2,7 +2,7 @@ import pickle
 from Tools import Jornada, Reforma
 import pandas as pd
 
-def Obtener_Prediccion(nota):
+def Obtener_Prediccion(nota, periodico):
     '''
     Returns the classification and probability of a press release as new columns in a pd.DataFrame.
 
@@ -32,13 +32,19 @@ def Obtener_Prediccion(nota):
         nota['PrediccionEtiqueta'] = 'No'
         nota.loc[nota.Prediccion == 1,'PrediccionEtiqueta']='Si'
 
+        if(periodico == 0):
+            nota['Periodico'] = "Reforma"
+        else:
+            nota['Periodico'] = "La Jornada"
+
         nota['P_Si'],nota['P_No'] = proba[:,1],proba[:,0] # Append the probabilities as new columns
 
         # Return press release based on probability
-        if proba[0,1]>=.60:
+        if proba[0,1]>=.15:
             return nota
         else:
             return None
+        # return nota
 
 def GuardarEnBase(nota,Nota,db):
     nota_existe = Nota.query.filter_by(Link = nota.link.str.encode("utf-8")).first() 
@@ -75,7 +81,7 @@ def Bajar_Notas(data,Nota,db,engine):
     fechas = pd.date_range(start=data['fecha_i'],end=data['fecha_f'])
     print(fechas)
     # Create pd.DataFrame where to store all press releases that have >= 60% probability of being useful
-    notas = pd.DataFrame(data = None, columns= ['Titulo','Autor','Referencia','Texto','link','Prediccion','PrediccionEtiqueta','P_Si','P_No'])
+    notas = pd.DataFrame(data = None, columns= ['Titulo','Autor','Referencia','Texto','link','Prediccion','PrediccionEtiqueta','P_Si','P_No','Periodico'])
     notas_lista = []
 
     for idx,date in enumerate(fechas):
@@ -97,7 +103,7 @@ def Bajar_Notas(data,Nota,db,engine):
             while((f < len(folios)) and (l < len(links))):
                 print('Descargando nota {} de Jornada'.format(l))
                 notaJ = Jornada.DescargaNotas(links[l],True) 
-                notaJ = Obtener_Prediccion(notaJ)
+                notaJ = Obtener_Prediccion(notaJ, 1)
                 if notaJ is not None:
                     existJ = GuardarEnBase(notaJ,Nota,db)
                     if existJ:
@@ -105,7 +111,7 @@ def Bajar_Notas(data,Nota,db,engine):
 
                 print('Descargando nota {} de Reforma'.format(f))
                 notaR = Reforma.NotasReforma(folios[f],True)
-                notaR = Obtener_Prediccion(notaR)
+                notaR = Obtener_Prediccion(notaR, 0)
                 if notaR is not None:
                     existR = GuardarEnBase(notaR,Nota,db)
                     if existR:
@@ -117,8 +123,8 @@ def Bajar_Notas(data,Nota,db,engine):
                 if (f < len(folios)):
                     f += 1
                 
-                if f > 15 or l > 15:
-                    break
+                # if f > 15 or l > 15:
+                #     break
 
         elif(data['Jornada'] & ~data['Reforma']):
             
@@ -130,7 +136,7 @@ def Bajar_Notas(data,Nota,db,engine):
                 # Download press release individually and classify them
                 print("Descargando nota:",i)
                 notaJ = Jornada.DescargaNotas(link,True) 
-                notaJ = Obtener_Prediccion(notaJ)
+                notaJ = Obtener_Prediccion(notaJ, 1)
                 
                 if notaJ is not None:
                     exist = GuardarEnBase(notaJ,Nota,db)
@@ -152,25 +158,27 @@ def Bajar_Notas(data,Nota,db,engine):
                 # Download press release individually and classify them
                 print("Descargando nota:",i)
                 notaR = Reforma.NotasReforma(folio,True)
-                notaR = Obtener_Prediccion(notaR)
+                notaR = Obtener_Prediccion(notaR, 0)
 
                 if notaR is not None:
-                    # notaR.to_sql(name='NotasGuardadas')
+                    # notaR.to_sql(name='notasguardadasV2')
                     exist = GuardarEnBase(notaR,Nota,db)
                     if exist:
                         notas_lista.append(notaR)
                 i += 1
                
-                if i > 15:
-                    break
+                # if i > 15:
+                #     break
               
     if not notas_lista:
         return "No hay notas que cumplan con la mínima probabilidad"
 
     notas = pd.concat(notas_lista)
     notas.drop(notas[notas.Texto.isnull()].index,inplace=True)
-    # notas[['Titulo', 'Autor', 'Texto','link','P_Si', 'P_No']].to_sql(name="notasguardadas", if_exists='append', con=engine, index=False)
+    # notas[['Titulo', 'Autor', 'Texto','link','P_Si', 'P_No']].to_sql(name="notasguardadasV2", if_exists='append', con=engine, index=False)
+    notas = notas.drop_duplicates()
     notas_json = notas[['Titulo','Autor','link','P_Si','P_No']].to_json(orient='split')
-    notas[['Titulo', 'Autor', 'Texto','link','P_Si', 'P_No']].to_sql(name="notasguardadas", if_exists='append', con=engine, index=False)
+    print(len(notas))
+    notas[['Titulo', 'Autor', 'Texto','link','P_Si', 'P_No']].to_sql(name="notasguardadasv2", if_exists='append', con=engine, index=False)
 
     return notas_json   
