@@ -33,7 +33,7 @@ app = Flask(__name__)
 # configuration 
 app.config["SECRET_KEY"] = "yoursecretkey"
 # app.config["SQLALCHEMY_DATABASE_URI"] = f"mysql+mysqldb://root:{PASSWORD}@{PUBLIC_IP_ADDRESS}/{DBNAME}?unix_socket=/cloudsql/{PROJECT_ID}:{INSTANCE_NAME}"
-app.config["SQLALCHEMY_DATABASE_URI"] = 'mysql+mysqldb://root:{PASSWORD}@{PUBLIC_IP_ADDRESS}/notasservicio' 
+app.config["SQLALCHEMY_DATABASE_URI"] = 'mysql+mysqldb://root:{1q2w3e4r5t}@localhost/notasservicio?charset=utf8' 
 #engine = SQLAlchemy.create_engine('mysql+mysqldb://root:{1q2w3e4r5t}@localhost/notasservicio')
 
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"]= True
@@ -42,11 +42,11 @@ CORS(app,support_credentials=True)
 db = SQLAlchemy(app)
 
 class Nota(db.Model):
-    __tablename__ = 'NotasGuardadas'
+    __tablename__ = 'notasguardadasV2'
     id   = db.Column(db.Integer, primary_key = True)
     Titulo = db.Column(db.String(200))
     Autor = db.Column(db.String(200))
-    Texto = db.Column(db.String(10000))
+    Texto = db.Column(db.Text(4294967295))
     Link = db.Column(db.String(200))
     P_Si = db.Column(db.Float)
     P_No = db.Column(db.Float)  
@@ -57,24 +57,24 @@ db.create_all()
 @cross_origin(support_credentials=True)
 def Notes(): 
     # Read json
-    first_engine = create_engine('mysql+mysqldb://root:{PASSWORD}@{PUBLIC_IP_ADDRESS}/notasservicio').connect()
+    first_engine = create_engine('mysql+mysqldb://root:{1q2w3e4r5t}@localhost/notasservicio?charset=utf8').connect()
     data = request.get_json()
     print(data) 
     
     notas_json = Func.Bajar_Notas(data,Nota,db,first_engine)
     
     first_engine.close()
-    first_engine.dispose()
+    # first_engine.dispose()
    
     return notas_json
 
 @app.route("/read-notas",methods=['POST'])
 @cross_origin(support_credentials=True)
 def Read_database():
-    engine = create_engine('mysql+mysqldb://root:{PASSWORD}@{PUBLIC_IP_ADDRESS}/notasservicio').connect()
-    all_notes_df = pd.read_sql_table('notasguardadas', engine)
+    engine = create_engine('mysql+mysqldb://root:{1q2w3e4r5t}@localhost/notasservicio?charset=utf8').connect()
+    all_notes_df = pd.read_sql_table('notasguardadasv2', engine)
     engine.close()
-    engine.dispose()
+    # engine.dispose()
     
     return all_notes_df.to_json(orient='split')
 
