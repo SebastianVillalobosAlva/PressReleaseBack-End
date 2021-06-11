@@ -154,7 +154,7 @@ def DescargarNota(link):
 
 	contenido=""
 	for match in soup.find_all('p'):
-		contenido =  contenido+match.text
+		contenido =  contenido+match.text+"\n"
 	#print(contenido)
 	
 	nota = {
