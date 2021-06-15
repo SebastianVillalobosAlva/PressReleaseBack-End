@@ -73,6 +73,7 @@ def Notes():
 def Read_database():
     engine = create_engine('mysql+mysqldb://root:{1q2w3e4r5t}@localhost/notasservicio?charset=utf8').connect()
     all_notes_df = pd.read_sql_table('notasguardadasv2', engine)
+    all_notes_df = all_notes_df[['Titulo','Autor','Link','P_Si','P_No']]
     engine.close()
     # engine.dispose()
     
