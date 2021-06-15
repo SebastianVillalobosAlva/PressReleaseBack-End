@@ -1,6 +1,7 @@
 import pickle
 from Tools import Jornada, Reforma
 import pandas as pd
+from fpdf import FPDF
 
 def Obtener_Prediccion(nota, periodico):
     '''
@@ -49,31 +50,8 @@ def Obtener_Prediccion(nota, periodico):
 def GuardarEnBase(nota,Nota,db):
     nota_existe = Nota.query.filter_by(Link = nota.link.str.encode("utf-8")).first() 
     if not nota_existe: 
-        # try: 
-            # print("Creando la nota")
-            # # creating Users object 
-            # user = Nota( 
-            #     Titulo = nota.Titulo.str.encode("utf-8"),
-            #     Autor = nota.Autor.str.encode("utf-8"),
-            #     Texto = nota.Texto.str.encode("utf-8"),
-            #     Link = nota.link.str.encode("utf-8"),
-            #     P_Si = float(nota.Probabilidad_Si),
-            #     P_No = float(nota.Probabilidad_No)
-            #     ) 
-            # print("\n Se creo la nota")
-            # print(user)
-            # # adding the fields to users table 
-            # db.session.add(user) 
-            # print("\n Se agregó la nota")
-            # db.session.commit() 
-            # # db.session.flush()
-            # print("\n Se guardó en la base de datos")
         return True
-
-        # except:
     else:
-            # db.session.rollback() 
-            # print("\n No se guardó en la base de datos")
         return False
 
 def Bajar_Notas(data,Nota,db,engine):
@@ -177,6 +155,35 @@ def Bajar_Notas(data,Nota,db,engine):
     notas.drop(notas[notas.Texto.isnull()].index,inplace=True)
     # notas[['Titulo', 'Autor', 'Texto','link','P_Si', 'P_No']].to_sql(name="notasguardadasV2", if_exists='append', con=engine, index=False)
     notas = notas.drop_duplicates()
+
+    notas_p=notas[['Titulo','Autor','Referencia','link','Prediccion','PrediccionEtiqueta','P_Si','P_No','Texto']]
+    renglones=notas_p.shape[0]
+    columnas=notas_p.shape[1]
+    c_n_l=list(notas_p.columns)
+    i=0
+    p=0
+    enunciado=""
+    for renglon in range(0,renglones):
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font('arial', 'B', 14)
+        pdf.cell(0, 8, 'Notas',0,2,align='C')
+        pdf.set_font('arial', 'B', 8)
+        for column in c_n_l:
+            if not column=='Texto':
+                pdf.cell(0,10,column+': '+str(notas_p[column].iloc[i]),0,2,align='C')
+            if column=='Texto':
+                pdf.add_page()
+                pdf.cell(0,11,'Texto',0,2,align='C')
+                pdf.set_font('arial', 'B', 9)
+                articulo=str(notas_p['Texto'].iloc[i])
+                pdf.multi_cell(0,10,articulo,0,0)
+            #     pdf.image("C://Users/Dell/Downloads/PressReleaseBack-End-Isra/PressReleaseBack-End-Isra/screenshot.png",type='PNG')
+                    
+        name="report_"+str(notas_p['Titulo'].iloc[i])+".pdf"
+        pdf.output(name, 'F')
+        i=i+1
+
     notas_json = notas[['Titulo','Autor','link','P_Si','P_No']].to_json(orient='split')
     print(len(notas))
     notas[['Titulo', 'Autor', 'Texto','link','P_Si', 'P_No']].to_sql(name="notasguardadasv2", if_exists='append', con=engine, index=False)
