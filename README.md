@@ -3,5 +3,7 @@ Uses machine learning to classify these press releases, stores them in a databas
 
 # Requirements
 Python 3.7.9
+
 Libraries are in the file: requirements.txt
+
 MySQL 8.0.24
