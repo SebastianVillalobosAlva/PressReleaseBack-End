@@ -24,17 +24,16 @@ import re
 app = Flask(__name__)
 
 # Google Cloud SQL (change this accordingly) 
-# PASSWORD ="Lusw7sbiMylOkAbc"
-# PUBLIC_IP_ADDRESS = "34.70.119.102"
-# DBNAME ="Notas"
-# PROJECT_ID = "nth-rarity-307801"
-# INSTANCE_NAME ="notas-guardadas123"
+# PASSWORD =""
+# PUBLIC_IP_ADDRESS = ""
+# DBNAME =""
+# PROJECT_ID = ""
+# INSTANCE_NAME =""
 
 # configuration 
 app.config["SECRET_KEY"] = "yoursecretkey"
 # app.config["SQLALCHEMY_DATABASE_URI"] = f"mysql+mysqldb://root:{PASSWORD}@{PUBLIC_IP_ADDRESS}/{DBNAME}?unix_socket=/cloudsql/{PROJECT_ID}:{INSTANCE_NAME}"
-app.config["SQLALCHEMY_DATABASE_URI"] = 'mysql+mysqldb://root:{1q2w3e4r5t}@localhost/notasservicio?charset=utf8' 
-#engine = SQLAlchemy.create_engine('mysql+mysqldb://root:{1q2w3e4r5t}@localhost/notasservicio')
+app.config["SQLALCHEMY_DATABASE_URI"] = 'mysql+mysqldb://{USER}:{PASSWORD}@localhost/{TABLE}?charset=utf8' 
 
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"]= True
 
@@ -57,7 +56,7 @@ db.create_all()
 @cross_origin(support_credentials=True)
 def Notes(): 
     # Read json
-    first_engine = create_engine('mysql+mysqldb://root:{1q2w3e4r5t}@localhost/notasservicio?charset=utf8').connect()
+    first_engine = create_engine('mysql+mysqldb://{USER}:{PASSWORD}@localhost/{TABLE}?charset=utf8').connect()
     data = request.get_json()
     print(data) 
     
@@ -71,7 +70,7 @@ def Notes():
 @app.route("/read-notas",methods=['POST'])
 @cross_origin(support_credentials=True)
 def Read_database():
-    engine = create_engine('mysql+mysqldb://root:{1q2w3e4r5t}@localhost/notasservicio?charset=utf8').connect()
+    engine = create_engine('mysql+mysqldb://{USER}:{PASSWORD}@localhost/{TABLE}?charset=utf8').connect()
     all_notes_df = pd.read_sql_table('notasguardadasv2', engine)
     all_notes_df = all_notes_df[['Titulo','Autor','Link','P_Si','P_No']]
     engine.close()
